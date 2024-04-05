@@ -8,15 +8,30 @@ import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 public class FileService {
-    ExecutorService executor = Executors.newCachedThreadPool();
+    ExecutorService executor = Executors.newCachedThreadPool();;
     Assignment8 assignment = new Assignment8();
 
     public List<Integer> getAllNumbers() {
-        CompletableFuture<List<Integer>> future = CompletableFuture.supplyAsync(assignment::getNumbers, executor);
-        List<Integer> allNumbers = future.join();
+        List<CompletableFuture<List<Integer>>> numberTaskFutures = new ArrayList<>();
+        for (int i = 0; i < 1000; i++) {
+            CompletableFuture<List<Integer>> numberTask =
+                    CompletableFuture.supplyAsync(() -> assignment.getNumbers(), executor);
+            numberTaskFutures.add(numberTask);
+        }
+        CompletableFuture<Void> allNumberTasksCompleted = CompletableFuture.allOf(numberTaskFutures.toArray(new CompletableFuture[0]));
+
+        allNumberTasksCompleted.join();
+
+        List<Integer> allNumbers = numberTaskFutures.stream()
+                .flatMap(numberTask -> numberTask.join().stream())
+                .collect(Collectors.toList());
+
         executor.shutdown();
         return allNumbers;
+
     }
+
+
 
     public void countAndPrintoutNumbers(List<Integer> allNumbers) {
         Map<Integer, Long> countMap = allNumbers.stream()
